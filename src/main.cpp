@@ -1,53 +1,36 @@
-#include "filesystem/Directory.hpp"
+#include "filesystem/FileSystemManager.hpp"
 #include "filesystem/File.hpp"
-#include "filesystem/Symlink.hpp"
 
 #include <iostream>
-#include <memory>
-#include <utility>
 
 int main() {
-    fsim::Directory root("/");
+    fsim::FileSystemManager fs;
 
-    auto home = std::make_unique<fsim::Directory>("home");
+    fs.createDirectory("/home");
+    fs.createDirectory("/home/user");
 
-    home->addChild(
-        std::make_unique<fsim::File>("notes.txt", 1024)
+    fs.createFile("/home/user/notes.txt", 1024);
+
+    fs.createSymlink(
+        "/home/user/latest",
+        "notes.txt"
     );
 
-    home->addChild(
-        std::make_unique<fsim::Symlink>(
-            "latest", "notes.txt")
-    );
+    auto* node = fs.find("/home/user/latest");
 
-    root.addChild(std::move(home));
+    auto* file = dynamic_cast<fsim::File*>(node);
 
-    auto* homeNode = root.findChild("home");
-
-    if (!homeNode) {
+    if (!file) {
+        std::cerr << "Expected a file\n";
         return 1;
     }
 
-    auto& homeDir =
-        static_cast<fsim::Directory&>(*homeNode);
+    std::cout << "File: " << file->name() << '\n';
+    std::cout << "Size: " << file->size() << '\n';
 
-    for (const auto& [name, node] : homeDir.children()) {
-        std::cout << name << " - ";
+    fs.remove("/home/user/latest");
 
-        switch (node->type()) {
-            case fsim::NodeType::File:
-                std::cout << "File";
-                break;
-            case fsim::NodeType::Directory:
-                std::cout << "Directory";
-                break;
-            case fsim::NodeType::Symlink:
-                std::cout << "Symlink";
-                break;
-        }
-
-        std::cout << '\n';
-    }
+    std::cout << "Symlink removed successfully\n";
 
     return 0;
 }

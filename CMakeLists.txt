@@ -10,6 +10,7 @@ add_library(filesystem_core
     src/File.cpp
     src/Directory.cpp
     src/Symlink.cpp
+    src/FileSystemManager.cpp
 )
 
 target_compile_features(filesystem_core
