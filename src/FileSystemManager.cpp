@@ -3,6 +3,7 @@
 #include "filesystem/File.hpp"
 #include "filesystem/Symlink.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -238,6 +239,163 @@ void FileSystemManager::remove(
 
     auto [parent, name] = resolveParent(path);
     parent->removeChild(name);
+}
+
+
+Permissions FileSystemManager::getPermissions(
+    const std::string& path) {
+
+    Node* node = resolve(path, false);
+    return node->permissions();
+}
+
+void FileSystemManager::changePermissions(
+    const std::string& path,
+    Permissions permissions,
+    bool recursive) {
+
+    Node* node = resolve(path, false);
+
+    if (recursive) {
+        changePermissionsRecursive(*node, permissions);
+    } else {
+        node->setPermissions(permissions);
+    }
+}
+
+void FileSystemManager::changePermissionsRecursive(
+    Node& node,
+    Permissions permissions) {
+
+    node.setPermissions(permissions);
+
+    if (node.type() != NodeType::Directory) {
+        return;
+    }
+
+    auto& directory = static_cast<Directory&>(node);
+
+    for (const auto& [name, child] :
+         directory.children()) {
+
+        changePermissionsRecursive(
+            *child, permissions
+        );
+    }
+}
+
+
+std::size_t FileSystemManager::maxDepth(
+    const std::string& path) {
+
+    Node* node = resolve(path, true);
+
+    if (node->type() != NodeType::Directory) {
+        throw std::invalid_argument(
+            "Path is not a directory");
+    }
+
+    return calculateDepth(
+        static_cast<const Directory&>(*node));
+}
+
+bool FileSystemManager::containsFile(
+    const std::string& directoryPath,
+    const std::string& filename) {
+
+    Node* node = resolve(directoryPath, true);
+
+    if (node->type() != NodeType::Directory) {
+        throw std::invalid_argument(
+            "Path is not a directory");
+    }
+
+    return findFileRecursive(
+        static_cast<const Directory&>(*node),
+        filename);
+}
+
+std::vector<FileEntry> FileSystemManager::listFiles(
+    const std::string& directoryPath,
+    SortCriteria criteria) {
+
+    Node* node = resolve(directoryPath, true);
+
+    if (node->type() != NodeType::Directory) {
+        throw std::invalid_argument(
+            "Path is not a directory");
+    }
+
+    std::vector<FileEntry> files;
+
+    collectFiles(
+        static_cast<const Directory&>(*node),
+        "",
+        files);
+
+    if (criteria == SortCriteria::Name) {
+        std::sort(
+            files.begin(),
+            files.end(),
+            [](const FileEntry& a, const FileEntry& b) {
+                return a.path < b.path;
+            });
+    } else {
+        std::sort(
+            files.begin(),
+            files.end(),
+            [](const FileEntry& a, const FileEntry& b) {
+                if (a.size != b.size) {
+                    return a.size < b.size;
+                }
+                return a.path < b.path;
+            });
+    }
+
+    return files;
+}
+
+void FileSystemManager::printFiles(
+    const std::string& directoryPath,
+    SortCriteria criteria,
+    std::ostream& out) {
+
+    const auto files = listFiles(
+        directoryPath, criteria);
+
+    for (const auto& file : files) {
+        out << file.path
+            << " (" << file.size << " bytes)\n";
+    }
+}
+
+// ==================================================
+// Interview reconstruction boundary
+// The recursive helpers were NOT implemented.
+// ==================================================
+
+std::size_t FileSystemManager::calculateDepth(
+    const Directory&) {
+
+    throw std::logic_error(
+        "TODO: calculateDepth");
+}
+
+bool FileSystemManager::findFileRecursive(
+    const Directory&,
+    const std::string&) {
+
+    throw std::logic_error(
+        "TODO: findFileRecursive");
+}
+
+void FileSystemManager::collectFiles(
+    const Directory&,
+    const std::string&,
+    std::vector<FileEntry>&) {
+
+    throw std::logic_error(
+        "TODO: collectFiles");
 }
 
 } // namespace fsim
